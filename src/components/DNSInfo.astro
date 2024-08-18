@@ -1,0 +1,57 @@
+---
+import { jsonDB } from '../server/jsonDB.ts';
+import { findServerIP } from '../server/sendEmail/fineEmailServer.ts';
+
+interface Props {
+    domain: string;
+    mainDomain: string;
+}
+
+const { domain, mainDomain } = Astro.props;
+const mainDomainIP = domain === mainDomain ? await findServerIP(mainDomain) : null;
+---
+
+<div class='flex flex-col gap-3'>
+    <h3 class='text-2xl'>DNS Info - {domain}</h3>
+    <div class='flex w-full overflow-x-auto'>
+        <table class='table'>
+            <thead>
+                <tr>
+                    <th>Name</th>
+                    <th>Type</th>
+                    <th style='width: 30%;'>Value</th>
+                    <th>What is for?</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td>{domain}</td>
+                    <td>TXT</td>
+                    <td>{mainDomainIP ? `v=spf1 ip${mainDomainIP.isIPv6 ? '6' : '4'}:${mainDomainIP.address} -all` : `v=spf1 include:${mainDomain} ~all`}</td>
+                    <td><b>SPF</b> (Sender Policy Framework) record, Helps prevent email spoofing by specifying which mail servers are allowed to send email on behalf of your domain.</td>
+                </tr>
+            </tbody>
+
+            <tr>
+                <td>default._domainkey.{domain}</td>
+                <td>TXT</td>
+                <td class='long-line'>v=DKIM1; k=rsa; p={jsonDB.data.certificate.public.replace(/---.+---/g, '').replace(/\s/g, '')}</td>
+                <td><b>DKIM</b> (DomainKeys Identified Mail) Digital signature to emails to verify they are sent from an authorized server.</td>
+            </tr>
+
+            <tr>
+                <td>_dmarc.{domain}</td>
+                <td>TXT</td>
+                <td>v=DMARC1; p=none; rua=mailto:postmaster@{domain}; ruf=mailto:postmaster@{domain}; fo=1</td>
+                <td><b>DMARC</b> (Domain-based Message Authentication, Reporting, and Conformance) Specify how your domain handles unauthenticated emails.</td>
+            </tr>
+        </table>
+    </div>
+</div>
+
+<style>
+    table td:not(:first-child) {
+        text-wrap: wrap !important;
+        line-break: anywhere;
+    }
+</style>

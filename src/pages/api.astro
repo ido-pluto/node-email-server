@@ -1,0 +1,60 @@
+---
+import hljs from 'highlight.js/lib/common';
+import Website from '../layouts/Website.astro';
+import { jsonDB } from '../server/jsonDB.js';
+import typescript from 'highlight.js/lib/languages/typescript';
+hljs.registerLanguage('ts', typescript);
+import 'highlight.js/styles/vs2015.css';
+
+const SEND_EMAIL_CODE = 
+`const response = await fetch("${Astro.url.protocol}//${jsonDB.data.config.mainDomain}/send", {
+    method: 'POST',
+    headers: {
+        'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+        password: "${jsonDB.data.emailServerPassword}",
+        from: 'example@${jsonDB.data.config.mainDomain}',
+        to: 'clinet@${jsonDB.data.config.mainDomain}',
+        html: '<b>Hello World</b>',
+    }),
+});
+
+const fails = response.json();
+
+if(fails.length === 0){
+    console.log('Email sent');
+} else {
+    console.log('Error sending email');
+}`;
+
+const SEND_EMAIL_TYPES = `
+import type Mail from 'nodemailer/lib/mailer/index';
+
+type SendEmail = Mail.Options & {
+    password: string;
+};
+`
+---
+
+<Website title='API'>
+    <div class='md:m-10 lg:m-15 flex flex-col gap-5'>
+        <div class="m-auto flex flex-col gap-3">
+            <h3 class='text-3xl'>Sending email over HTTP(S)</h3>
+            <p>This email server support only sending email over http</p>
+        </div>
+
+
+        <div class='mt-5 flex justify-around gap-3'>
+            <pre class="border rounded p-3 bg-gray-700 dark:bg-transparent text-white"><Fragment set:html={hljs.highlight(SEND_EMAIL_CODE, { language: 'ts' }).value} /></pre>
+            <div class="flex flex-col gap-3">
+                <h4 class="text-2xl">Types</h4>
+
+                <p>Install types with that command: </p>
+                <code>npm i -D @types/nodemailer</code>
+
+                <pre class="border rounded p-3 bg-gray-700 dark:bg-transparent text-white"><Fragment set:html={hljs.highlight(SEND_EMAIL_TYPES, { language: 'ts' }).value} /></pre>
+            </div>
+        </div>
+    </div>
+</Website>

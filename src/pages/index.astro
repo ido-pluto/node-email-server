@@ -1,0 +1,97 @@
+---
+import { BButton, Bind, BindForm, BInput } from '@astro-utils/forms/forms.js';
+import { Alert } from '../components/Alert.tsx';
+import ServerConfig from '../components/ServerConfig.astro';
+import Website from '../layouts/Website.astro';
+import { jsonDB } from '../server/jsonDB.ts';
+import { startEmailServer } from '../server/smtpServer/smtpServer.ts';
+
+type Form = {
+    import?: File;
+    success?: string;
+    error?: string;
+};
+
+const bind = Bind<Form>({
+    success: Astro.locals.session.importDataSuccess
+});
+delete Astro.locals.session.importDataSuccess;
+
+async function restartServer() {
+    await startEmailServer();
+    bind.success = 'Server restarted';
+}
+
+async function importData() {
+    if (!bind.import) {
+        bind.error = 'Please select a file to import';
+        return;
+    }
+
+    try {
+        const content = await bind.import.arrayBuffer();
+        const parseFile = JSON.parse(Buffer.from(content).toString('utf8'));
+
+        if (!parseFile.nodeEmailServerVersion) {
+            throw new Error('Invalid data file, missing nodeEmailServerVersion');
+        }
+
+        if (parseFile.nodeEmailServerVersion != jsonDB.data.nodeEmailServerVersion) {
+            throw new Error(`The data you are trying to import (${parseFile.nodeEmailServerVersion}), is from a different version of the server version ${jsonDB.data.nodeEmailServerVersion}`);
+        }
+
+        await jsonDB.update(data => {
+            Object.assign(data, parseFile);
+            return parseFile;
+        });
+
+        Astro.locals.forms.overrideResponse = Astro.redirect(Astro.url.href);
+        Astro.locals.session.importDataSuccess = 'Data imported successfully';
+    } catch (error) {
+        bind.error = error.message;
+    }
+}
+
+let downloadLinkData = '';
+async function exportData() {
+    const data = JSON.stringify(jsonDB.data);
+    downloadLinkData = Buffer.from(data).toString('base64');
+
+    bind.success = 'Data exported successfully, click the link below to download';
+}
+---
+
+<Website title='Home Page'>
+    <BindForm omitState={['error', 'success']} bind={bind}>
+        <Alert type='success' description={bind.success} />
+        <Alert type='error' description={bind.error} />
+
+        <div class='flex justify-around pt-10 gap-14'>
+            <ServerConfig />
+            <div class='flex flex-col gap-4'>
+                <h3 class='text-3xl'>Information</h3>
+                <p>Main Domain = The current domain, the domain where this server is hosted, make sure port 25 is open.</p>
+                <p>After changing the main domain, restart the server and update the DNS recoreds.</p>
+
+                <div>
+                    <BButton class='btn btn-error' onClick={restartServer}>Restart Server</BButton>
+                </div>
+
+                <h3 class='text-3xl mt-5'>Import / Export Data</h3>
+                <div class='flex gap-4'>
+                    <BInput name='import' type='file' class='input-file' accept='.json' />
+                    <BButton class='btn btn-primary' onClick={importData}>Import Data</BButton>
+                    <BButton class='btn btn-primary' onClick={exportData}>Export Data</BButton>
+                </div>
+
+                {
+                    downloadLinkData && (
+                        <a href={`data:application/json;base64,${downloadLinkData}`} download={`node-email-server (${new Date().toLocaleString()}).json`} class='link link-primary'>
+                            Download Data
+                        </a>
+                    )
+                }
+            </div>
+        </div>
+    </BindForm>
+</Website>

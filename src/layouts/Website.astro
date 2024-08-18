@@ -1,0 +1,115 @@
+---
+import { BButton, Bind, BindForm, BInput, WebForms } from '@astro-utils/forms/forms.js';
+import { Alert } from '../components/Alert.tsx';
+import { IoMoon } from 'react-icons/io5';
+import { IoSunny } from 'react-icons/io5';
+
+interface Props {
+    title: string;
+}
+
+const { title } = Astro.props;
+const bind = Bind();
+
+function tryLogin() {
+    if (!process.env.PASSWORD) {
+        if (!import.meta.env.DEV) {
+            bind.error = 'Please set a `PASSWORD` in the environment variables';
+        } else {
+            bind.warning = 'Do not forget to set a `PASSWORD` in the environment variables, when in production';
+            Astro.locals.session.connected = true;
+        }
+    }
+}
+
+if (!Astro.locals.session.connected) {
+    tryLogin();
+}
+
+function login(showError = true) {
+    if (!process.env.PASSWORD || process.env.PASSWORD === bind.password) {
+        Astro.locals.session.connected = true;
+        bind.success = 'Logged in';
+        return;
+    }
+
+    if (showError) {
+        bind.error = 'Invalid password';
+    }
+}
+
+function switchTheme() {
+    Astro.locals.session.theme = Astro.locals.session.theme === 'dark' ? 'light' : 'dark';
+    Astro.locals.forms.overrideResponse = Astro.redirect(Astro.url.href);
+}
+---
+
+<!doctype html>
+<html lang='en' data-theme={Astro.locals.session.theme}>
+    <head>
+        <meta charset='UTF-8' />
+        <meta name='description' content='Astro description' />
+        <meta name='viewport' content='width=device-width' />
+        <link rel='icon' type='image/png' href='/favicon.png' />
+        <meta name='generator' content={Astro.generator} />
+        <title>NES | {title}</title>
+    </head>
+    <body>
+        <WebForms>
+            <BindForm omitState={['error', 'success']} bind={bind}>
+                <div class='navbar'>
+                    <div class='navbar-start'>
+                        <a href='/' class='navbar-item flex gap-3 items-center'>
+                            <img src='/favicon.png' alt='Node Email Server' class='logo' />
+                            Node Email Server
+                        </a>
+                    </div>
+                    <div class='navbar-end'>
+                        <a href='/' class='navbar-item'>Home</a>
+                        <a href='/domains' class='navbar-item'>Domains & DNS</a>
+                        <a href='/send-email' class='navbar-item'>Send Email</a>
+                        <a href='/emails' class='navbar-item'>Emails</a>
+                        <a href='/api' class='navbar-item'>API</a>
+                        <BButton onClick={switchTheme} class='navbar-item'>
+                            {Astro.locals.session.theme === 'dark' ? <IoSunny /> : <IoMoon />}
+                        </BButton>
+                    </div>
+                </div>
+
+                <div class='md:m-10 lg:m-15'>
+                    <Alert type='error' title={bind.error} />
+                    <Alert type='success' title={bind.success} />
+                    <Alert type='warning' title={bind.warning} />
+
+                    {
+                        Astro.locals.session.connected ? (
+                            <slot />
+                        ) : (
+                            <div class='card m-auto login-card'>
+                                <div class='card-body'>
+                                    <h2 class='card-header'>Login</h2>
+
+                                    <BInput name='password' class='input' type='password' placeholder='Password' />
+                                    <div class='card-footer'>
+                                        <BButton onClick={login} class='btn-secondary btn'>
+                                            Submit
+                                        </BButton>
+                                    </div>
+                                </div>
+                            </div>
+                        )
+                    }
+                </div>
+            </BindForm>
+        </WebForms>
+    </body>
+</html>
+<style>
+    .login-card {
+        margin-top: calc(50vh - 300px);
+    }
+
+    .logo {
+        height: 30px;
+    }
+</style>

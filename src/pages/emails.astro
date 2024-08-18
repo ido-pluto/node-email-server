@@ -1,0 +1,156 @@
+---
+import { BButton, Bind, BindForm } from '@astro-utils/forms/forms.js';
+import type { ParsedMail } from 'mailparser';
+import * as sanitizeHtml from 'sanitize-html';
+import superjson from 'superjson';
+import Website from '../layouts/Website.astro';
+import { jsonDB } from '../server/jsonDB.ts';
+import prettyBytes from 'pretty-bytes';
+
+const allEmails = jsonDB.data.emails.map(email => superjson.parse(email)) as ParsedMail[];
+
+function emailTo(email: ParsedMail) {
+    return [email.to]
+        .flat()
+        .filter(Boolean)
+        .map(x => x.text)
+        .join(', ');
+}
+
+type Form = {
+    view: ParsedMail;
+    deleteEmail: ParsedMail | null;
+    deleteAll: boolean;
+};
+
+const bind = Bind<Form>();
+
+function viewEmail(email: ParsedMail) {
+    bind.view = email;
+    bind.deleteEmail = null;
+    bind.deleteAll = false;
+}
+
+function deleteEmail() {
+    if (!bind.deleteEmail) {
+        bind.deleteEmail = bind.view;
+        return;
+    }
+
+    jsonDB.update(data => {
+        data.emails = data.emails.filter(email => email !== superjson.stringify(bind.deleteEmail));
+        return data;
+    });
+    allEmails.splice(allEmails.indexOf(bind.deleteEmail), 1);
+
+    bind.view = undefined;
+    bind.deleteEmail = null;
+}
+
+function deleteAllEmails() {
+    if (!bind.deleteAll) {
+        bind.deleteAll = true;
+        return;
+    }
+
+    jsonDB.update(data => {
+        data.emails = [];
+        return data;
+    });
+    allEmails.splice(0, allEmails.length);
+
+    bind.view = undefined;
+    bind.deleteAll = false;
+}
+---
+
+<Website title='View Emails'>
+    <BindForm {bind}>
+        <div class='flex justify-between mb-10'>
+            <h1 class='text-2xl'>View Emails</h1>
+            {
+                bind.view ? (
+                    <div class='flex gap-4'>
+                        <BButton onClick={deleteEmail} class='btn btn-error'>
+                            {bind.deleteEmail ? 'Click to confirm' : 'Delete Email'}
+                        </BButton>
+
+                        <BButton onClick={() => (bind.view = undefined)} class='btn btn-primary'>
+                            Back
+                        </BButton>
+                    </div>
+                ) : (
+                    <div>
+                        <BButton onClick={deleteAllEmails} class='btn btn-error'>
+                            {bind.deleteAll ? 'Click to confirm' : 'Delete All'}
+                        </BButton>
+                    </div>
+                )
+            }
+        </div>
+
+        {
+            bind.view ? (
+                <div>
+                    <h2 class='text-2xl border-l-blue-800 border-l-4 pl-5 title'>{bind.view.subject}</h2>
+
+                    <div class='p-2 rounded my-10'>
+                        <p>From: {bind.view.from?.value?.[0]?.address}</p>
+                        <p>To: {emailTo(bind.view)}</p>
+                        <p>Date: {bind.view.date.toLocaleString()}</p>
+                    </div>
+
+                    <div class='border rounded min-h-20 border-gray-200 mt-5 p-3'>
+                        <Fragment set:html={sanitizeHtml.default(bind.view.html || bind.view.textAsHtml || '')} />
+                    </div>
+
+                    {bind.view.attachments.length > 0 ? (
+                        <div>
+                            <h3 class='text-2xl mt-10'>Attachments: </h3>
+                            <div class='flex flex-wrap gap-5'>
+                                {bind.view.attachments?.map(attachment => (
+                                    <div class='border rounded p-2 my-2'>
+                                        <p>{attachment.filename}</p>
+                                        <p>{prettyBytes(attachment.size)}</p>
+                                        <a href={`data:${attachment.contentType};base64,${attachment.content}`} download={attachment.filename} class="link link-primary">
+                                            Download
+                                        </a>
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+                    ) : null}
+                </div>
+            ) : (
+                <div class='overflow-x-auto'>
+                    <table class='table'>
+                        <thead>
+                            <tr>
+                                <th>From</th>
+                                <th>To</th>
+                                <th>Subject</th>
+                                <th>Date</th>
+                                <th />
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {allEmails.map(email => (
+                                <tr>
+                                    <td>{email.from?.value?.[0]?.address}</td>
+                                    <td>{emailTo(email)}</td>
+                                    <td>{email.subject}</td>
+                                    <td>{email.date}</td>
+                                    <td>
+                                        <BButton onClick={() => viewEmail(email)} class='btn btn-secondary'>
+                                            View
+                                        </BButton>
+                                    </td>
+                                </tr>
+                            ))}
+                        </tbody>
+                    </table>
+                </div>
+            )
+        }
+    </BindForm>
+</Website>

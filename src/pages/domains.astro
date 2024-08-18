@@ -1,0 +1,120 @@
+---
+import { BButton, Bind, BindForm, BInput } from '@astro-utils/forms/forms.js';
+import { Alert } from '../components/Alert.tsx';
+import DNSInfo from '../components/DNSInfo.astro';
+import Website from '../layouts/Website.astro';
+import { jsonDB } from '../server/jsonDB.ts';
+import { startEmailServer } from '../server/smtpServer/smtpServer.ts';
+
+const bind = Bind({ altDomains: jsonDB.data.config.altDomains, viewDomain: jsonDB.data.config.mainDomain });
+
+async function addDomain() {
+    if (!bind.domain) {
+        bind.error = 'Domain is required';
+        return;
+    }
+
+    if (bind.altDomains.includes(bind.domain) || bind.domain === jsonDB.data.config.mainDomain) {
+        bind.error = 'Domain already exists';
+        return;
+    }
+
+    bind.success = 'Domain added';
+    await jsonDB.update(data => {
+        data.config.altDomains.push(bind.domain);
+        bind.altDomains = data.config.altDomains;
+        return data;
+    });
+}
+
+async function restartServer() {
+    await startEmailServer();
+    bind.success = 'Server restarted';
+}
+
+async function removeDomain(domain: string) {
+    if (bind.sureDelete !== domain) {
+        bind.sureDelete = domain;
+        return;
+    }
+
+    bind.success = 'Domain removed';
+    await jsonDB.update(data => {
+        data.config.altDomains.splice(data.config.altDomains.indexOf(domain), 1);
+        bind.altDomains = data.config.altDomains;
+        return data;
+    });
+}
+---
+
+<Website title='Domains & DNS'>
+    <BindForm omitState={['error', 'success']} bind={bind}>
+        <div class='md:m-10 lg:m-15'>
+            <Alert type='success' description={bind.success} />
+
+            <div class='flex flex-col gap-8'>
+                <div class='flex flex-col gap-4'>
+                    <h2 class='text-2xl'>Domains</h2>
+                    <p class='text-content2'>Here you can add and remove domains</p>
+                    <div class='flex gap-3 mb-5'>
+                        <BInput name='domain' type='text' class='input' placeholder='optional.example.com' />
+                        <BButton onClick={addDomain} class='btn btn-primary'>Add Domain</BButton>
+                    </div>
+
+                    <div class='flex w-full overflow-x-auto'>
+                        <table class='table'>
+                            <thead>
+                                <tr>
+                                    <th>View</th>
+                                    <th>Domain</th>
+                                    <th>Remove</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr>
+                                    <td>
+                                        <BButton class='btn btn-secondary' onClick={() => (bind.viewDomain = jsonDB.data.config.mainDomain)}> View DNS </BButton>
+                                    </td>
+                                    <td>{jsonDB.data.config.mainDomain}</td>
+                                    <td>(Main Domain, change from HomePage)</td>
+                                </tr>
+                                {
+                                    bind.altDomains.map(domain => (
+                                        <tr>
+                                            <td>
+                                                <BButton class='btn btn-secondary' onClick={() => (bind.viewDomain = domain)}>
+                                                    View DNS
+                                                </BButton>
+                                            </td>
+                                            <td>{domain}</td>
+                                            <td>
+                                                <BButton class='btn btn-error' onClick={() => removeDomain(domain)}>
+                                                    {bind.sureDelete === domain ? 'Click to confirm' : 'Remove'}
+                                                </BButton>
+                                            </td>
+                                        </tr>
+                                    ))
+                                }
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+                <div class='my-4 flex flex-col gap-4'>
+                    <h2 class='text-2xl'>Server Action</h2>
+                    <div class='flex gap-4'>
+                        <BButton class='btn btn-error' onClick={restartServer}>Restart Server</BButton>
+                    </div>
+                </div>
+                <DNSInfo domain={bind.viewDomain} mainDomain={jsonDB.data.config.mainDomain} />
+
+                <div class='flex flex-col gap-4'>
+                    <h2 class='text-3xl'>Important Information</h2>
+                    <p>
+                        After making <b>ANY</b> changes to the domains, including the main domain, you <b>MUST</b> restart the server. This step ensures that the digital signature is regenerated if necessary. <br />
+                        Additionally, update the <code>DKIM</code> record in the DNS server for <b>EVERY</b> domain using the configuration provided above. While the DKIM record at firest may appear unchanged, the digital signature will have been updated.
+                    </p>
+                </div>
+            </div>
+        </div>
+    </BindForm>
+</Website>

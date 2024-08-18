@@ -1,0 +1,69 @@
+---
+import { BButton, Bind, BindForm, BInput } from '@astro-utils/forms/forms.js';
+import { Alert } from './Alert.tsx';
+import { jsonDB } from '../server/jsonDB.ts';
+
+const bind = Bind({
+    domain: jsonDB.data.config.mainDomain,
+    maxEmails: jsonDB.data.maxEmails,
+    maxMessageSize: jsonDB.data.maxMessageSize,
+    redirectEmailsTo: jsonDB.data.redirectEmailsTo,
+    emailServerPassword: jsonDB.data.emailServerPassword,
+    success: '',
+});
+
+async function submit() {
+    await jsonDB.update(data => {
+        data.config.mainDomain = bind.domain;
+        data.maxEmails = bind.maxEmails;
+        data.maxMessageSize = bind.maxMessageSize;
+        data.redirectEmailsTo = bind.redirectEmailsTo;
+        data.emailServerPassword = bind.emailServerPassword;
+    });
+
+    bind.success = 'Server config updated, do not forget to restart the server';
+}
+---
+
+<div class='flex w-full max-w-sm flex-col gap-6'>
+    <div class='flex flex-col items-center'>
+        <h1 class='text-3xl font-semibold'>Server Config</h1>
+    </div>
+
+    <BindForm bind={bind} omitState={['success']}>
+        <Alert type='success' description={bind.success} />
+
+        <div class='form-group'>
+            <div class='form-field'>
+                <label class='form-label'>Main Domain</label>
+                <BInput name='domain' placeholder='example.com' type='text' class='input max-w-full' />
+            </div>
+
+            <div class='form-field'>
+                <label class='form-label'>API Password</label>
+                <BInput name='emailServerPassword' type='text' class='input max-w-full' />
+            </div>
+
+            <div class='form-field'>
+                <label class='form-label'>Max Emails To Store</label>
+                <BInput name='maxEmails' type='int' min='0' class='input max-w-full' />
+            </div>
+
+            <div class='form-field'>
+                <label class='form-label'>Max Message Size (bytes)</label>
+                <BInput name='maxMessageSize' type='int' min='100' class='input max-w-full' />
+            </div>
+
+            <div class='form-field'>
+                <label class='form-label'>Redirect emails to</label>
+                <BInput name='redirectEmailsTo' type='text' min='100' class='input max-w-full' />
+            </div>
+        </div>
+
+        <div class='form-field pt-5'>
+            <div class='form-control justify-between'>
+                <BButton onClick={submit} class='btn btn-primary w-full' whenFormOK>Save</BButton>
+            </div>
+        </div>
+    </BindForm>
+</div>

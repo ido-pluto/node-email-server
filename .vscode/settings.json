@@ -1,0 +1,12 @@
+{
+    "gitlens.codeLens.scopesByLanguage": [
+        {
+            "language": "astro",
+            "scopes": []
+        }
+    ],
+    "explorer.excludeGitIgnore": false,
+    "cSpell.words": [
+        "uploaders"
+    ]
+}

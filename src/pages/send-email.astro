@@ -1,0 +1,122 @@
+---
+import { BButton, Bind, BindForm, BInput, BOption, BSelect, FormErrors } from '@astro-utils/forms/forms.js';
+import { Alert } from '../components/Alert.tsx';
+import Website from '../layouts/Website.astro';
+import { jsonDB } from '../server/jsonDB.ts';
+import { sendEmail } from '../server/sendEmail/sendEmail.ts';
+import hljs from 'highlight.js/lib/common';
+import 'trix/dist/trix.css';
+import 'highlight.js/styles/vs2015.css';
+
+type Form = {
+    files: File[]
+}
+
+const bind = Bind<Form>();
+let sentInfo = '';
+async function submit() {
+    const filterFiles = bind.files.filter(file => file.size > 0);
+    const response = await sendEmail({
+        from: `${bind.from}@${bind.domain}`,
+        to: bind.to,
+        subject: bind.subject,
+        html: bind.message,
+        attachments: await Promise.all(filterFiles.map(async file => ({
+            filename: file.name,
+            contentType: file.type,
+            content: Buffer.from(await file.arrayBuffer())
+        })))
+    });
+
+    sentInfo = '<pre class="bg-gray-700 dark:bg-transparent text-white rounded p-2">' + hljs.highlight(JSON.stringify(response, null, 2), { language: 'json' }).value + '</pre>';
+
+    if ('error' in response) {
+        bind.error = 'Error sending email';
+    } else {
+        bind.success = 'Email send';
+    }
+}
+---
+
+<Website title='Send Email'>
+    <div class='md:m-10 lg:m-15'>
+        <BindForm bind={bind} omitState={['success']}>
+            <Alert type='success' description={bind.success} />
+            <Alert type='error' description={bind.error} />
+            <FormErrors />
+
+            {
+                sentInfo && (
+                    <div class='card max-w-full mb-8'>
+                        <div class='card-body'>
+                            <h2 class='card-header mb-2'>Sent Info (errors, [] = No Errors)</h2>
+                            <Fragment set:html={sentInfo} />
+                        </div>
+                    </div>
+                )
+            }
+
+            <div class='form-group'>
+                <div class='form-field'>
+                    <label class='form-label'>From</label>
+                    <div class='flex items-center gap-3'>
+                        <BInput name='from' value='test' type='text' class='input max-w-full' />
+                        <span class='text-nowrap'>@</span>
+                        <BSelect name='domain' class='input max-w-full' value={jsonDB.data.config.mainDomain}>
+                            <BOption>{jsonDB.data.config.mainDomain}</BOption>
+                            <div class="bg-gray-700 dark:bg-transparent text-white">
+                                {jsonDB.data.config.altDomains.map(domain => <BOption>{domain}</BOption>)}
+                            </div>
+                        </BSelect>
+                    </div>
+                </div>
+
+                <div class='form-field'>
+                    <label class='form-label'>To</label>
+                    <BInput name='to' type='text' value={`send@${jsonDB.data.config.mainDomain}`} placeholder='email@example.com' class='input max-w-full' />
+                </div>
+
+                <div class='form-field'>
+                    <label class='form-label'>Subject</label>
+                    <BInput name='subject' type='text' value='This is a test email' class='input max-w-full' />
+                </div>
+
+                <BInput id='message' type='hidden' name='message' maxlength={10_000} />
+                <div class='mt-5'>
+                    <trix-editor class='editor-content' input='message'></trix-editor>
+                </div>
+
+                <div class='form-field'>
+                    <label class='form-label'>Upload files</label>
+                    <BInput name='files' type="file" class="input-file max-w-full" multiple={true}/>
+                </div>
+            </div>
+
+            <div class='form-field pt-5'>
+                <div class='form-control justify-between'>
+                    <div>
+                        <BButton onClick={submit} class='btn btn-primary w-full' whenFormOK>Send Email</BButton>
+                    </div>
+                </div>
+            </div>
+        </BindForm>
+    </div>
+</Website>
+
+<script>
+    import 'trix/dist/trix.esm.js';
+</script>
+
+<style is:global>
+    .editor-content {
+        min-height: 400px;
+    }
+
+    .trix-button {
+        background: #f8f9fa !important;
+    }
+
+    .trix-button-group--file-tools {
+        display: none !important;
+    }
+</style>
