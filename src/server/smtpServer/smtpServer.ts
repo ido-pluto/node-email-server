@@ -21,20 +21,23 @@ export async function startEmailServer() {
         key: jsonDB.data.certificate.private,
         cert: jsonDB.data.certificate.cert,
         size: jsonDB.data.maxMessageSize,
-        onRcptTo(_, session, callback) {
+        onMailFrom(address, _, callback) {
+            if (!validateEmailFrom(address.address)) {
+                const err = new Error("Invalid email address") as any;
+                err.responseCode = 550;
+                return callback(err);
+            }
+
+            return callback();
+          },
+        onRcptTo(address, session, callback) {
+            if (!validateEmailTo(address.address)) {
+                const err = new Error("Email domain is not registered") as any;
+                err.responseCode = 550;
+                return callback(err);
+            }
+            
             if (session.envelope.mailFrom) {
-                if (!validateEmailFrom(session.envelope.mailFrom.address)) {
-                    const err = new Error("Invalid email address") as any;
-                    err.responseCode = 550;
-                    return callback(err);
-                }
-
-                if (!validateEmailTo(session.envelope.rcptTo.map((to) => to.address))) {
-                    const err = new Error("Email domain is not registered") as any;
-                    err.responseCode = 550;
-                    return callback(err);
-                }
-
                 const args: any = session.envelope.mailFrom.args;
                 let expectedSize = Number(args.SIZE) || 0;
                 if (expectedSize > jsonDB.data.maxMessageSize) {
@@ -58,6 +61,11 @@ export async function startEmailServer() {
             simpleParser(stream, async (err, parsed) => {
                 if (err) {
                     console.error('Error parsing email:', err);
+                    return callback();
+                }
+
+                if(stream.sizeExceeded){
+                    console.error('Error: Message is too large');
                     return callback();
                 }
 

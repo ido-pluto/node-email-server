@@ -4,15 +4,9 @@ export function getEmailDomain(email: string) {
     return email?.split('@')?.[1] || '';
 }
 
-export function validateEmailTo(address: string[]) {
-    for(const email of address) {
-        const domain = getEmailDomain(email);
-        if(!inDomains(domain)) {
-            return false;
-        }
-    }
-    
-    return true;
+export function validateEmailTo(email: string) {
+    const domain = getEmailDomain(email);
+    return inDomains(domain);
 }
 
 export function validateEmailFrom(address: string) {
