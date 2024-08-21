@@ -60,13 +60,15 @@ export async function startEmailServer() {
 
             simpleParser(stream, async (err, parsed) => {
                 if (err) {
-                    console.error('Error parsing email:', err);
-                    return callback();
+                    const error = new Error('Error parsing email') as any;
+                    error.responseCode = 451;
+                    return callback(error);
                 }
 
                 if(stream.sizeExceeded){
-                    console.error('Error: Message is too large');
-                    return callback();
+                    const error = new Error('Message is too large') as any;
+                    error.responseCode = 452;
+                    return callback(error);
                 }
 
                 parsed.attachments.forEach((attachment) => {
