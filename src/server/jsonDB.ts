@@ -30,6 +30,6 @@ export const jsonDB = await JSONFilePreset(storage, {
     }
 });
 
-export async function inDomains(domain: string){
+export function inDomains(domain: string){
     return jsonDB.data.config.mainDomain === domain || jsonDB.data.config.altDomains.includes(domain);
 }
