@@ -1,0 +1,36 @@
+---
+import { BButton, BindForm, BInput, type Bind } from '@astro-utils/forms/forms.js';
+import { BiPlus, BiTrash } from 'react-icons/bi';
+
+interface Props {
+    name: string;
+    bind: ReturnType<typeof Bind>;
+    title: string;
+    placeholder?: string;
+}
+
+const { name, bind, title, placeholder } = Astro.props;
+---
+
+<BindForm bind={bind} omitState={['success']}>
+    <div class='border border-gray-200 dark:border-gray-600 rounded-xl p-3'>
+        <div class='flex justify-between items-baseline'>
+            <h3 class='text-xl'>{title}</h3>
+            <BButton onClick={() => bind[name].push('')} class='btn btn-rounded btn-primary'>
+                <BiPlus size={18} />
+            </BButton>
+        </div>
+        <div class='flex flex-col gap-3 mt-5'>
+            {
+                bind[name].map((value, index) => (
+                    <div class='flex gap-3'>
+                        <BInput name={`${name}[${index}]`} value={value} type='text' class='input' placeholder={placeholder} />
+                        <BButton onClick={() => bind[name].splice(index, 1)} class='btn btn-error'>
+                            <BiTrash size={18} />
+                        </BButton>
+                    </div>
+                ))
+            }
+        </div>
+    </div>
+</BindForm>

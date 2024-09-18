@@ -1,5 +1,5 @@
 ---
-import { BButton, Bind, BindForm } from '@astro-utils/forms/forms.js';
+import { BButton, Bind, BindForm, BOption, BSelect } from '@astro-utils/forms/forms.js';
 import type { ParsedMail } from 'mailparser';
 import * as sanitizeHtml from 'sanitize-html';
 import superjson from 'superjson';
@@ -8,6 +8,15 @@ import { jsonDB } from '../server/jsonDB.ts';
 import prettyBytes from 'pretty-bytes';
 
 const allEmails = jsonDB.data.emails.map(email => superjson.parse(email)) as ParsedMail[];
+const mailBoxes = [
+    ...new Set(
+        allEmails
+            .map(email => email.to)
+            .flat()
+            .filter(Boolean)
+            .map(x => x.text)
+    ),
+];
 
 function emailTo(email: ParsedMail) {
     return [email.to]
@@ -18,12 +27,13 @@ function emailTo(email: ParsedMail) {
 }
 
 type Form = {
-    view: ParsedMail;
-    deleteEmail: ParsedMail | null;
-    deleteAll: boolean;
+    view?: ParsedMail;
+    deleteEmail?: ParsedMail | null;
+    deleteAll?: boolean;
+    mailBox?: string;
 };
 
-const bind = Bind<Form>();
+const bind = Bind<Form>({mailBox: 'all'});
 
 function viewEmail(email: ParsedMail) {
     bind.view = email;
@@ -67,7 +77,14 @@ function deleteAllEmails() {
 <Website title='View Emails'>
     <BindForm {bind}>
         <div class='flex justify-between mb-10'>
-            <h1 class='text-2xl'>View Emails</h1>
+            <div class='flex gap-10 flex-grow'>
+                <h1 class='text-2xl'>View Emails</h1>
+                <BSelect name='mailBox' class='select w-auto' onchange='submitForm("refrash")'>
+                    <BOption value='all'>All</BOption>
+                    {mailBoxes.map(mailBox => <BOption value={mailBox}>{mailBox}</BOption>)}
+                </BSelect>
+                <BButton onClick={() => (bind.view = undefined)} class='hidden' id="refrash"></BButton>
+            </div>
             {
                 bind.view ? (
                     <div class='flex gap-4'>
@@ -112,7 +129,7 @@ function deleteAllEmails() {
                                     <div class='border rounded p-2 my-2'>
                                         <p>{attachment.filename}</p>
                                         <p>{prettyBytes(attachment.size)}</p>
-                                        <a href={`data:${attachment.contentType};base64,${attachment.content}`} download={attachment.filename} class="link link-primary">
+                                        <a href={`data:${attachment.contentType};base64,${attachment.content}`} download={attachment.filename} class='link link-primary'>
                                             Download
                                         </a>
                                     </div>
@@ -134,7 +151,7 @@ function deleteAllEmails() {
                             </tr>
                         </thead>
                         <tbody>
-                            {allEmails.map(email => (
+                            {allEmails.filter(email => bind.mailBox === "all" || [email.to].flat().filter(Boolean).map(x => x.text).includes(bind.mailBox)).map(email => (
                                 <tr>
                                     <td>{email.from?.value?.[0]?.address}</td>
                                     <td>{emailTo(email)}</td>

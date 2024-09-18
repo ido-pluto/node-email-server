@@ -1,0 +1,45 @@
+---
+import { BButton, Bind, BindForm } from '@astro-utils/forms/forms.js';
+import { jsonDB } from '../server/jsonDB.ts';
+import { Alert } from './Alert.tsx';
+import List from './List.astro';
+
+const bind = Bind({
+    doNotForwardEmailsFrom: jsonDB.data.doNotForwardEmailsFrom,
+    doNotForwardEmailsSentTo: jsonDB.data.doNotForwardEmailsSentTo,
+    rejectEmailsFrom: jsonDB.data.rejectEmailsFrom,
+});
+
+async function submit() {
+    await jsonDB.update(data => {
+        data.doNotForwardEmailsFrom = bind.doNotForwardEmailsFrom;
+        data.doNotForwardEmailsSentTo = bind.doNotForwardEmailsSentTo;
+        data.rejectEmailsFrom = bind.rejectEmailsFrom;
+    });
+
+    bind.success = 'Ignore emails updated';
+}
+---
+
+<div class='flex w-full max-w-sm flex-col gap-6'>
+    <div class='flex flex-col items-center'>
+        <h1 class='text-3xl font-semibold mb-3'>Ignore Emails</h1>
+        <p>This will reject/ignore emails that "starts with"</p>
+    </div>
+
+    <BindForm bind={bind} omitState={['success']}>
+        <Alert type='success' description={bind.success} />
+
+        <div class='form-group'>
+            <List name='doNotForwardEmailsFrom' bind={bind} title='Do not forward emails from' placeholder='example@email.com or example@' />
+            <List name='doNotForwardEmailsSentTo' bind={bind} title='Do not forward emails sent to' placeholder='postmaster@' />
+            <List name='rejectEmailsFrom' bind={bind} title='Reject emails from' placeholder="spam@" />
+
+            <div class='form-field pt-5'>
+                <div class='form-control justify-between'>
+                    <BButton onClick={submit} class='btn btn-primary w-full' whenFormOK>Save</BButton>
+                </div>
+            </div>
+        </div>
+    </BindForm>
+</div>

@@ -42,7 +42,7 @@ const mainDomainIP = domain === mainDomain ? await findServerIP(mainDomain) : nu
             <tr>
                 <td>_dmarc.{domain}</td>
                 <td>TXT</td>
-                <td>v=DMARC1; p=none; rua=mailto:postmaster@{domain}; ruf=mailto:postmaster@{domain}; fo=1</td>
+                <td>v=DMARC1; p=none; rua=mailto:dmarc-reports@{domain}; ruf=mailto:dmarc-reports-alert@{domain}; fo=1</td>
                 <td><b>DMARC</b> (Domain-based Message Authentication, Reporting, and Conformance) Specify how your domain handles unauthenticated emails.</td>
             </tr>
         </table>

@@ -8,6 +8,12 @@ import { validateEmailFrom, validateEmailTo } from './validation.ts';
 
 let activeServer: SMTPServer | null = null;
 
+declare module 'smtp-server' {
+    interface SMTPServerSession {
+        doNotForward?: boolean;
+    }
+}
+
 export async function startEmailServer() {
     if (activeServer) {
         await new Promise((resolve: any) => activeServer?.close(resolve));
@@ -21,13 +27,22 @@ export async function startEmailServer() {
         key: jsonDB.data.certificate.private,
         cert: jsonDB.data.certificate.cert,
         size: jsonDB.data.maxMessageSize,
-        onMailFrom(address, _, callback) {
+        onMailFrom(address, session, callback) {
             if (!validateEmailFrom(address.address)) {
                 const err = new Error("Invalid email address") as any;
                 err.responseCode = 550;
                 return callback(err);
             }
 
+
+            const rejectEmail = jsonDB.data.rejectEmailsFrom.some(email => address.address.startsWith(email));
+            if(rejectEmail){
+                const error = new Error('Email rejected') as any;
+                error.responseCode = 550;
+                return callback(error);
+            }
+
+            session.doNotForward ||= jsonDB.data.doNotForwardEmailsFrom.some(email => address.address.startsWith(email));
             return callback();
           },
         onRcptTo(address, session, callback) {
@@ -47,10 +62,11 @@ export async function startEmailServer() {
                 }
             }
 
-            callback();
+            session.doNotForward ||= jsonDB.data.doNotForwardEmailsSentTo.some(email => address.address.startsWith(email));
+            return callback();
         },
-        onData(stream, _, callback) {
-            if (jsonDB.data.redirectEmailsTo) {
+        onData(stream, session, callback) {
+            if (jsonDB.data.redirectEmailsTo && !session.doNotForward) {
                 forwardEmail(stream).then((errors) => {
                     if (errors.length) {
                         console.error('Error forwarding email:', errors);
