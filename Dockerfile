@@ -11,6 +11,7 @@ COPY package-lock.json /app/
 RUN npm install
 
 COPY . /app/
+RUN rm -f /app/storage/db.json
 
 RUN npx astro telemetry disable
 RUN npm run build
